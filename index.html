@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>動画バズ分析ツール</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c28;
+      --border: #2a2a3d;
+      --accent: #7c3aed;
+      --accent2: #a855f7;
+      --accent-glow: rgba(124, 58, 237, 0.3);
+      --text: #f1f1f8;
+      --text-muted: #8888aa;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'Hiragino Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a0533 0%, #0d0d1a 50%, #001a33 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-icon {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 20px var(--accent-glow);
+      flex-shrink: 0;
+    }
+
+    .logo-text h1 { font-size: 19px; font-weight: 700; }
+    .logo-text p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .badge {
+      margin-left: auto;
+      padding: 5px 12px;
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.4);
+      border-radius: 20px;
+      font-size: 12px;
+      color: #86efac;
+      white-space: nowrap;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 36px auto;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* How-to bar */
+    .howto {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 24px;
+      display: flex;
+      gap: 0;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .step {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-muted);
+    }
+
+    .step-num {
+      width: 22px; height: 22px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .step-arrow { color: var(--border); font-size: 16px; margin: 0 8px; }
+
+    /* Upload Zone */
+    .upload-zone {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: 20px;
+      padding: 56px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124,58,237,0.05);
+      box-shadow: 0 0 40px var(--accent-glow);
+    }
+
+    .upload-icon { font-size: 52px; margin-bottom: 14px; }
+    .upload-zone h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .upload-zone p { color: var(--text-muted); font-size: 14px; line-height: 1.7; }
+
+    .upload-btn {
+      display: inline-block;
+      margin-top: 22px;
+      padding: 12px 30px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 20px var(--accent-glow);
+      transition: opacity 0.2s;
+    }
+
+    .upload-btn:hover { opacity: 0.85; }
+    #fileInput { display: none; }
+
+    /* Video Preview */
+    .video-preview {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+    }
+
+    .section-label {
+      font-size: 13px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 16px;
+    }
+
+    .preview-inner {
+      display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;
+    }
+
+    video#preview {
+      width: 200px;
+      border-radius: 10px;
+      background: #000;
+      flex-shrink: 0;
+    }
+
+    .meta-grid {
+      flex: 1; min-width: 180px;
+      display: flex; flex-direction: column; gap: 0;
+    }
+
+    .meta-row {
+      display: flex; justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .meta-row:last-child { border-bottom: none; }
+    .meta-k { color: var(--text-muted); }
+    .meta-v { font-weight: 500; }
+
+    /* Prompt Section */
+    .prompt-section {
+      display: none;
+    }
+
+    .prompt-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; flex-wrap: wrap; gap: 10px;
+    }
+
+    .prompt-header h3 { font-size: 16px; font-weight: 700; }
+
+    .copy-btn {
+      padding: 9px 22px;
+      background: linear-gradient(135deg, var(--accent), #c026d3);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transition: opacity 0.2s;
+    }
+
+    .copy-btn:hover { opacity: 0.85; }
+    .copy-btn.copied { background: linear-gradient(135deg, #16a34a, #22c55e); }
+
+    .prompt-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #c4b5fd;
+      font-family: 'Menlo', 'Monaco', monospace;
+      white-space: pre-wrap;
+      max-height: 380px;
+      overflow-y: auto;
+      user-select: all;
+    }
+
+    /* CTA */
+    .cta-section {
+      display: none;
+      background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(192,38,211,0.1));
+      border: 1px solid rgba(124,58,237,0.4);
+      border-radius: 18px;
+      padding: 28px 32px;
+      text-align: center;
+    }
+
+    .cta-section h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .cta-section p { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; line-height: 1.6; }
+
+    .cta-btn {
+      display: inline-block;
+      padding: 14px 36px;
+      background: linear-gradient(135deg, var(--accent), #c026d3);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 6px 24px var(--accent-glow);
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .cta-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .cta-steps {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .cta-step {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-muted);
+    }
+
+    .cta-step-num {
+      width: 20px; height: 20px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* Reset */
+    .reset-area {
+      text-align: center;
+    }
+
+    .btn-ghost {
+      background: none; border: none;
+      color: var(--text-muted); font-size: 13px;
+      cursor: pointer; text-decoration: underline;
+    }
+
+    .btn-ghost:hover { color: var(--text); }
+
+    /* Error */
+    .error {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.4);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 14px;
+      color: #fca5a5;
+      display: none;
+    }
+
+    @media (max-width: 600px) {
+      .upload-zone { padding: 36px 18px; }
+      .howto { gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🎬</div>
+  <div class="logo-text">
+    <h1>動画バズ分析ツール</h1>
+    <p>最新SNSアルゴリズム対応 · Claude Pro で動作</p>
+  </div>
+  <div class="badge">✓ API課金なし</div>
+</header>
+
+<div class="container">
+
+  <!-- How-to -->
+  <div class="howto">
+    <div class="step"><div class="step-num">1</div>動画をアップロード</div>
+    <div class="step-arrow">›</div>
+    <div class="step"><div class="step-num">2</div>分析プロンプトをコピー</div>
+    <div class="step-arrow">›</div>
+    <div class="step"><div class="step-num">3</div>Claude.ai に動画＋プロンプトを貼り付け</div>
+    <div class="step-arrow">›</div>
+    <div class="step"><div class="step-num">4</div>バズ分析レポートを受け取る</div>
+  </div>
+
+  <!-- Error -->
+  <div class="error" id="error"></div>
+
+  <!-- Upload Zone -->
+  <div class="upload-zone" id="uploadZone">
+    <div class="upload-icon">📤</div>
+    <h2>動画をアップロード</h2>
+    <p>MP4 / MOV / AVI / WebM / MKV 対応（最大500MB）<br>ドラッグ＆ドロップ または クリックで選択</p>
+    <label class="upload-btn" for="fileInput">ファイルを選択する</label>
+    <input type="file" id="fileInput" accept="video/*" />
+  </div>
+
+  <!-- Video Preview -->
+  <div class="video-preview" id="videoPreview">
+    <div class="section-label">📹 動画プレビュー</div>
+    <div class="preview-inner">
+      <video id="preview" controls></video>
+      <div class="meta-grid" id="metaGrid"></div>
+    </div>
+  </div>
+
+  <!-- Prompt Section -->
+  <div class="prompt-section" id="promptSection">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;">
+      <div class="prompt-header">
+        <h3>📋 分析プロンプト（コピーして Claude.ai へ）</h3>
+        <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">📋 プロンプトをコピー</button>
+      </div>
+      <div class="prompt-box" id="promptBox"></div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section" id="ctaSection">
+    <h3>🚀 次のステップ：Claude.ai で分析を実行</h3>
+    <p>
+      上のプロンプトをコピーしたら、Claude.ai を開いて<br>
+      <strong>動画ファイルと一緒にプロンプトを貼り付けて</strong>送信してください。
+    </p>
+    <a href="https://claude.ai" target="_blank" class="cta-btn">Claude.ai を開く →</a>
+    <div class="cta-steps">
+      <div class="cta-step"><div class="cta-step-num">1</div>Claude.ai にアクセス</div>
+      <div class="cta-step"><div class="cta-step-num">2</div>クリップに動画を添付</div>
+      <div class="cta-step"><div class="cta-step-num">3</div>プロンプトを貼り付けて送信</div>
+    </div>
+  </div>
+
+  <!-- Reset -->
+  <div class="reset-area" id="resetArea" style="display:none;">
+    <button class="btn-ghost" onclick="resetAll()">別の動画で分析する</button>
+  </div>
+
+</div>
+
+<script>
+  const fileInput = document.getElementById("fileInput");
+  const uploadZone = document.getElementById("uploadZone");
+  const videoPreview = document.getElementById("videoPreview");
+  const preview = document.getElementById("preview");
+  const metaGrid = document.getElementById("metaGrid");
+  const promptSection = document.getElementById("promptSection");
+  const promptBox = document.getElementById("promptBox");
+  const ctaSection = document.getElementById("ctaSection");
+  const resetArea = document.getElementById("resetArea");
+  const errorEl = document.getElementById("error");
+
+  let currentFile = null;
+
+  // Drag & Drop
+  uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("drag-over"); });
+  uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("drag-over"));
+  uploadZone.addEventListener("drop", e => {
+    e.preventDefault();
+    uploadZone.classList.remove("drag-over");
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  fileInput.addEventListener("change", e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+  function handleFile(file) {
+    if (!file.type.startsWith("video/")) {
+      showError("動画ファイルを選択してください。");
+      return;
+    }
+    if (file.size > 500 * 1024 * 1024) {
+      showError("ファイルサイズが500MBを超えています。");
+      return;
+    }
+
+    currentFile = file;
+    errorEl.style.display = "none";
+
+    const url = URL.createObjectURL(file);
+    preview.src = url;
+
+    preview.onloadedmetadata = () => {
+      const dur = Math.round(preview.duration);
+      const min = Math.floor(dur / 60);
+      const sec = dur % 60;
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+
+      metaGrid.innerHTML = `
+        <div class="meta-row"><span class="meta-k">ファイル名</span><span class="meta-v">${file.name}</span></div>
+        <div class="meta-row"><span class="meta-k">サイズ</span><span class="meta-v">${mb} MB</span></div>
+        <div class="meta-row"><span class="meta-k">長さ</span><span class="meta-v">${min > 0 ? min + "分" : ""}${sec}秒</span></div>
+        <div class="meta-row"><span class="meta-k">解像度</span><span class="meta-v">${preview.videoWidth} × ${preview.videoHeight}</span></div>
+        <div class="meta-row"><span class="meta-k">形式</span><span class="meta-v">${file.type}</span></div>
+      `;
+
+      const prompt = buildPrompt(file, preview);
+      promptBox.textContent = prompt;
+
+      uploadZone.style.display = "none";
+      videoPreview.style.display = "block";
+      promptSection.style.display = "block";
+      ctaSection.style.display = "block";
+      resetArea.style.display = "block";
+    };
+  }
+
+  function buildPrompt(file, video) {
+    const dur = Math.round(video.duration);
+    const min = Math.floor(dur / 60);
+    const sec = dur % 60;
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    const durStr = (min > 0 ? min + "分" : "") + sec + "秒";
+    const res = video.videoWidth + " × " + video.videoHeight;
+    const aspect = video.videoWidth > video.videoHeight ? "横長（横向き）" :
+                   video.videoWidth < video.videoHeight ? "縦長（縦向き・ショート動画向け）" : "正方形";
+
+    return `あなたは2025〜2026年最新のSNSアルゴリズム（Instagram Reels・TikTok・YouTube Shorts）を熟知したショート動画マーケティングの専門家です。
+
+添付した動画を分析し、以下の観点から詳細な評価と改善提案をしてください。
+
+【動画の基本情報】
+- ファイル名: ${file.name}
+- 長さ: ${durStr}
+- 解像度: ${res}（${aspect}）
+- ファイルサイズ: ${mb} MB
+
+---
+
+## ① バズる要因分析（0〜10点でスコアリング）
+
+以下の各要素を採点し、高評価の理由を具体的に説明してください。
+
+| 評価軸 | スコア | 評価コメント |
+|--------|--------|-------------|
+| 冒頭3秒フック（視聴者が離脱しない引きの強さ） | /10 | |
+| 視聴維持率設計（最後まで見たくなる構成・テンポ） | /10 | |
+| 映像クオリティ（画質・照明・構図・カット割り） | /10 | |
+| テロップ・テキスト（読みやすさ・タイミング・インパクト） | /10 | |
+| 音楽・効果音（BGM選曲・音量バランス・テンポ感） | /10 | |
+| 情報密度・テンポ（飽きさせない情報の出し方） | /10 | |
+| 保存率を高める要素（役立つ情報・あとで見返したい内容） | /10 | |
+| コメント誘導（共感・議論・質問を生む仕掛け） | /10 | |
+| 拡散性（シェアしたくなるオチ・驚き・感動・笑い） | /10 | |
+| ターゲット適合性（ターゲット層へのリーチ最適化） | /10 | |
+
+---
+
+## ② 伸びない原因分析
+
+再生回数・エンゲージメントが伸びない可能性のある弱点を具体的に指摘してください。
+
+- どこで視聴者が離脱しそうか？（タイムスタンプで指摘）
+- アルゴリズムにペナルティを受けそうな要素はあるか？
+- 競合動画と比べて劣っている点は何か？
+
+---
+
+## ③ 改善提案（優先順位付き）
+
+**【今すぐできる改善】**（編集・投稿設定で対応可能なもの）
+-
+
+**【次回撮影から取り組む改善】**（撮影・企画段階からの改善）
+-
+
+---
+
+## ④ 最適プラットフォーム判定
+
+この動画はどのプラットフォームで最もバズりやすいか評価してください：
+
+| プラットフォーム | 適合度 | 理由 |
+|----------------|--------|------|
+| Instagram Reels | | |
+| TikTok | | |
+| YouTube Shorts | | |
+
+---
+
+## ⑤ 総合スコアと予測
+
+- **総合バズスコア**: /100
+- **予測再生数レンジ**（初動7日間）: 〜 回
+- **最優先で修正すべき点**:
+
+---
+
+専門用語を使いつつ、映像制作の現場で即実践できる具体性を持たせてください。`;
+  }
+
+  function copyPrompt() {
+    const text = promptBox.textContent;
+    const btn = document.getElementById("copyBtn");
+
+    const tryClipboard = () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return Promise.reject("no clipboard api");
+    };
+
+    const fallbackCopy = () => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0;";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (!ok) throw new Error("execCommand failed");
+    };
+
+    tryClipboard()
+      .catch(fallbackCopy)
+      .then(() => {
+        btn.textContent = "✅ コピーしました！";
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.textContent = "📋 プロンプトをコピー";
+          btn.classList.remove("copied");
+        }, 2500);
+      })
+      .catch(() => {
+        btn.textContent = "⚠️ 手動でテキストを選択してコピーしてください";
+        setTimeout(() => { btn.textContent = "📋 プロンプトをコピー"; }, 3000);
+      });
+  }
+
+  function showError(msg) {
+    errorEl.textContent = "❌ " + msg;
+    errorEl.style.display = "block";
+  }
+
+  function resetAll() {
+    currentFile = null;
+    fileInput.value = "";
+    preview.src = "";
+    uploadZone.style.display = "block";
+    videoPreview.style.display = "none";
+    promptSection.style.display = "none";
+    ctaSection.style.display = "none";
+    resetArea.style.display = "none";
+    errorEl.style.display = "none";
+  }
+</script>
+
+</body>
+</html>

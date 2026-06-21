@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>動画バズ分析ツール</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c28;
+      --border: #2a2a3d;
+      --accent: #7c3aed;
+      --accent2: #a855f7;
+      --accent-glow: rgba(124, 58, 237, 0.3);
+      --red: #ef4444;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --text: #f1f1f8;
+      --text-muted: #8888aa;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'Hiragino Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* --- Header --- */
+    header {
+      background: linear-gradient(135deg, #1a0533 0%, #0d0d1a 50%, #001a33 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px var(--accent-glow);
+      flex-shrink: 0;
+    }
+
+    .logo-text h1 {
+      font-size: 20px; font-weight: 700; letter-spacing: -0.3px;
+    }
+
+    .logo-text p {
+      font-size: 12px; color: var(--text-muted); margin-top: 2px;
+    }
+
+    /* --- Main layout --- */
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+
+    /* --- Upload Zone --- */
+    .upload-section {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: 20px;
+      padding: 60px 40px;
+      text-align: center;
+      transition: all 0.25s ease;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .upload-section:hover,
+    .upload-section.drag-over {
+      border-color: var(--accent);
+      background: rgba(124, 58, 237, 0.05);
+      box-shadow: 0 0 40px var(--accent-glow);
+    }
+
+    .upload-icon { font-size: 56px; margin-bottom: 16px; }
+
+    .upload-section h2 {
+      font-size: 22px; font-weight: 700; margin-bottom: 8px;
+    }
+
+    .upload-section p {
+      color: var(--text-muted); font-size: 14px; line-height: 1.6;
+    }
+
+    .upload-btn {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 12px 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .upload-btn:hover { opacity: 0.85; }
+
+    #fileInput { display: none; }
+
+    /* --- Video Preview --- */
+    .video-preview-wrap {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    .video-preview-wrap h3 {
+      font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text-muted);
+    }
+
+    .video-preview-inner {
+      display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;
+    }
+
+    video#previewVideo {
+      width: 240px;
+      border-radius: 10px;
+      background: #000;
+      flex-shrink: 0;
+    }
+
+    .video-meta {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .meta-item {
+      display: flex; justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .meta-item:last-child { border-bottom: none; }
+    .meta-label { color: var(--text-muted); }
+    .meta-value { font-weight: 500; }
+
+    /* --- Analyze Button --- */
+    #analyzeBtn {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, var(--accent), #c026d3);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: opacity 0.2s, transform 0.1s;
+      box-shadow: 0 6px 30px var(--accent-glow);
+      display: none;
+    }
+
+    #analyzeBtn:hover { opacity: 0.9; transform: translateY(-1px); }
+    #analyzeBtn:active { transform: translateY(0); }
+    #analyzeBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* --- Progress --- */
+    .progress-wrap {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+      margin-top: 24px;
+    }
+
+    .spinner {
+      width: 52px; height: 52px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-text { font-size: 16px; font-weight: 600; }
+    .progress-sub { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+
+    /* --- Result --- */
+    .result-wrap {
+      display: none;
+      margin-top: 32px;
+    }
+
+    .result-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+    }
+
+    .result-header h2 { font-size: 20px; font-weight: 700; }
+
+    .result-actions { display: flex; gap: 10px; }
+
+    .btn-outline {
+      padding: 8px 18px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent2); }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      line-height: 1.8;
+    }
+
+    /* Markdown-like rendering */
+    .result-card h2, .result-card h3, .result-card h4 {
+      margin-top: 28px; margin-bottom: 10px;
+    }
+
+    .result-card h2 {
+      font-size: 20px;
+      color: var(--accent2);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .result-card h3 {
+      font-size: 16px;
+      color: #c4b5fd;
+    }
+
+    .result-card h4 { font-size: 15px; color: var(--text-muted); }
+
+    .result-card p { margin-bottom: 10px; }
+
+    .result-card ul, .result-card ol {
+      padding-left: 22px; margin-bottom: 12px;
+    }
+
+    .result-card li { margin-bottom: 4px; }
+
+    .result-card strong { color: #e2d9f3; }
+
+    .result-card code {
+      background: var(--surface2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .result-card table {
+      width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;
+    }
+
+    .result-card th, .result-card td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+    }
+
+    .result-card th { background: var(--surface2); font-weight: 600; }
+    .result-card tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    .result-card blockquote {
+      border-left: 3px solid var(--accent);
+      padding-left: 16px;
+      color: var(--text-muted);
+      margin: 12px 0;
+    }
+
+    /* Warning box */
+    .warning-box {
+      background: rgba(234, 179, 8, 0.1);
+      border: 1px solid rgba(234, 179, 8, 0.4);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #fde047;
+      margin-bottom: 20px;
+    }
+
+    /* --- Error --- */
+    .error-box {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 12px;
+      padding: 20px;
+      font-size: 14px;
+      color: #fca5a5;
+      margin-top: 24px;
+      display: none;
+    }
+
+    /* --- Reset btn --- */
+    .reset-area {
+      text-align: center;
+      margin-top: 24px;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .btn-ghost:hover { color: var(--text); }
+
+    /* --- Responsive --- */
+    @media (max-width: 600px) {
+      .upload-section { padding: 40px 20px; }
+      .result-card { padding: 20px; }
+      header { padding: 16px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🎬</div>
+  <div class="logo-text">
+    <h1>動画バズ分析ツール</h1>
+    <p>最新アルゴリズムに基づくSNS動画パフォーマンス分析</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Upload Zone -->
+  <div class="upload-section" id="uploadZone">
+    <div class="upload-icon">📤</div>
+    <h2>動画をアップロード</h2>
+    <p>MP4 / MOV / AVI / WebM / MKV 対応<br>最大100MB</p>
+    <label class="upload-btn" for="fileInput">ファイルを選択</label>
+    <input type="file" id="fileInput" accept="video/*" />
+  </div>
+
+  <!-- Video Preview -->
+  <div class="video-preview-wrap" id="videoPreviewWrap">
+    <h3>📹 アップロードされた動画</h3>
+    <div class="video-preview-inner">
+      <video id="previewVideo" controls></video>
+      <div class="video-meta" id="videoMeta"></div>
+    </div>
+  </div>
+
+  <!-- Analyze Button -->
+  <button id="analyzeBtn">🔍 バズ分析を開始する</button>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="spinner"></div>
+    <div class="progress-text">AIが動画を分析中...</div>
+    <div class="progress-sub">最新アルゴリズムデータと照合しています。しばらくお待ちください。</div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Result -->
+  <div class="result-wrap" id="resultWrap">
+    <div class="result-header">
+      <h2>📊 分析レポート</h2>
+      <div class="result-actions">
+        <button class="btn-outline" onclick="copyResult()">📋 コピー</button>
+        <button class="btn-outline" onclick="printResult()">🖨 印刷</button>
+      </div>
+    </div>
+    <div class="warning-box" id="warningBox" style="display:none;"></div>
+    <div class="result-card" id="resultCard"></div>
+    <div class="reset-area">
+      <button class="btn-ghost" onclick="resetAll()">別の動画を分析する</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const fileInput = document.getElementById("fileInput");
+  const uploadZone = document.getElementById("uploadZone");
+  const videoPreviewWrap = document.getElementById("videoPreviewWrap");
+  const previewVideo = document.getElementById("previewVideo");
+  const videoMeta = document.getElementById("videoMeta");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const progressWrap = document.getElementById("progressWrap");
+  const resultWrap = document.getElementById("resultWrap");
+  const resultCard = document.getElementById("resultCard");
+  const warningBox = document.getElementById("warningBox");
+  const errorBox = document.getElementById("errorBox");
+
+  let selectedFile = null;
+
+  // Drag & Drop
+  uploadZone.addEventListener("dragover", e => {
+    e.preventDefault();
+    uploadZone.classList.add("drag-over");
+  });
+
+  uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("drag-over"));
+
+  uploadZone.addEventListener("drop", e => {
+    e.preventDefault();
+    uploadZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener("change", e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  function handleFile(file) {
+    const allowed = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/webm", "video/x-matroska"];
+    if (!file.type.startsWith("video/")) {
+      showError("動画ファイルを選択してください。");
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      showError("ファイルサイズが100MBを超えています。");
+      return;
+    }
+
+    selectedFile = file;
+    errorBox.style.display = "none";
+
+    const url = URL.createObjectURL(file);
+    previewVideo.src = url;
+
+    previewVideo.onloadedmetadata = () => {
+      const dur = Math.round(previewVideo.duration);
+      const min = Math.floor(dur / 60);
+      const sec = dur % 60;
+      const size = (file.size / (1024 * 1024)).toFixed(1);
+
+      videoMeta.innerHTML = `
+        <div class="meta-item"><span class="meta-label">ファイル名</span><span class="meta-value">${file.name}</span></div>
+        <div class="meta-item"><span class="meta-label">サイズ</span><span class="meta-value">${size} MB</span></div>
+        <div class="meta-item"><span class="meta-label">長さ</span><span class="meta-value">${min > 0 ? min + "分" : ""}${sec}秒</span></div>
+        <div class="meta-item"><span class="meta-label">解像度</span><span class="meta-value">${previewVideo.videoWidth} × ${previewVideo.videoHeight}</span></div>
+        <div class="meta-item"><span class="meta-label">形式</span><span class="meta-value">${file.type}</span></div>
+      `;
+    };
+
+    uploadZone.style.display = "none";
+    videoPreviewWrap.style.display = "block";
+    analyzeBtn.style.display = "block";
+    resultWrap.style.display = "none";
+  }
+
+  analyzeBtn.addEventListener("click", async () => {
+    if (!selectedFile) return;
+
+    analyzeBtn.disabled = true;
+    progressWrap.style.display = "block";
+    resultWrap.style.display = "none";
+    errorBox.style.display = "none";
+
+    const formData = new FormData();
+    formData.append("video", selectedFile);
+
+    try {
+      const res = await fetch("/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "分析に失敗しました");
+      }
+
+      if (data.warning) {
+        warningBox.textContent = "⚠️ " + data.warning;
+        warningBox.style.display = "block";
+      } else {
+        warningBox.style.display = "none";
+      }
+
+      resultCard.innerHTML = markdownToHtml(data.result);
+      resultWrap.style.display = "block";
+
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      progressWrap.style.display = "none";
+      analyzeBtn.disabled = false;
+    }
+  });
+
+  function markdownToHtml(md) {
+    return md
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^#### (.+)$/gm, "<h4>$1</h4>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/`(.+?)`/g, "<code>$1</code>")
+      .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
+      .replace(/^[-*] (.+)$/gm, "<li>$1</li>")
+      .replace(/^(\d+)\. (.+)$/gm, "<li>$2</li>")
+      .replace(/(<li>.*<\/li>\n?)+/g, m => "<ul>" + m + "</ul>")
+      .replace(/\n{2,}/g, "</p><p>")
+      .replace(/^(?!<[hbuolpbc])(.+)$/gm, "<p>$1</p>")
+      .replace(/<p><\/p>/g, "")
+      .replace(/---/g, "<hr style='border-color:var(--border);margin:20px 0'>")
+  }
+
+  function showError(msg) {
+    errorBox.textContent = "❌ " + msg;
+    errorBox.style.display = "block";
+  }
+
+  function copyResult() {
+    const text = resultCard.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = event.target;
+      btn.textContent = "✅ コピーしました";
+      setTimeout(() => btn.textContent = "📋 コピー", 2000);
+    });
+  }
+
+  function printResult() {
+    window.print();
+  }
+
+  function resetAll() {
+    selectedFile = null;
+    fileInput.value = "";
+    previewVideo.src = "";
+    uploadZone.style.display = "block";
+    videoPreviewWrap.style.display = "none";
+    analyzeBtn.style.display = "none";
+    resultWrap.style.display = "none";
+    errorBox.style.display = "none";
+    warningBox.style.display = "none";
+  }
+</script>
+
+</body>
+</html>
